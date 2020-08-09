@@ -17,6 +17,10 @@
 # under the Licence.
 
 import os
+import json
+
+from cherab.core.atomic.elements import lookup_element, lookup_isotope
+
 
 """
 Utilities for managing the local rate repository.
@@ -50,4 +54,79 @@ def valid_charge(element, charge):
     return charge <= element.atomic_number
 
 
+
+def _assign_cherab_element(name):
+
+    try:
+        element_isotope = lookup_isotope(name)
+    except ValueError:
+        try:
+            element_isotope = lookup_element(name)
+        except ValueError:
+            raise ValueError("Could not find an element or isotope corresponding to the name  " + name)
+
+    return element_isotope
+
+
+def _get_elements_charge_from_rates_folder(folder):
+
+    file_list = os.listdir(folder)
+
+    rates = {}
+    for i in file_list:
+        file_path = os.path.join(folder,file_list[1])
+        if not os.path.isdir(file_path) and i.endswith(".json"):
+            filename = i.replace(".json","")
+
+            element = _assign_cherab_element(filename)
+
+            rates[filename] = {}
+            rates[filename]["element"] = element
+
+            with open(file_path, 'r') as f:
+                content = json.load(f)
+            rates[filename]["charges"] = list(content.keys())
+
+    return rates
+
+
+def _available_atomic_rates(rate_type, repository_path=None):
+
+    repository_path = repository_path or DEFAULT_REPOSITORY_PATH
+    folder_path = os.path.join(repository_path, rate_type + '/')
+    file_list = _get_elements_charge_from_rates_folder(folder_path)
+    return file_list
+
+
+def _available_radiated_power_rates(rate_type, repository_path):
+
+    repository_path = repository_path or DEFAULT_REPOSITORY_PATH
+    folder_path = os.path.join(repository_path, "radiated_power", rate_type)
+    file_list = _get_elements_charge_from_rates_folder(folder_path)
+    return file_list
+
+
+def available_recombination_rates(repository_path=None):
+
+    return _available_atomic_rates("recombination", repository_path)
+
+
+def available_ionisation_rates(repository_path=None):
+
+    return _available_atomic_rates("ionisation", repository_path)
+
+
+def available_continuum_radiated_power(repository_path=None):
+
+    return _available_radiated_power_rates("continuum",repository_path)
+
+
+def available_charge_exchange_radiated_power(repository_path=None):
+
+    return _available_radiated_power_rates("cx",repository_path)
+
+
+def available_line_radiated_power(repository_path=None):
+
+    return _available_radiated_power_rates("line",repository_path)
 
